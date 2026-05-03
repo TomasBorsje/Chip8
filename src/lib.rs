@@ -75,6 +75,10 @@ impl Chip8Machine {
 
         // Execute the instruction
         self.execute(operation);
+
+        // let display = self.get_display();
+        // print!("{}[2J", 27 as char); // Clear console
+        // print!("{display}");
     }
 
     // Fetch the instruction at the current program counter
@@ -87,12 +91,12 @@ impl Chip8Machine {
     }
 
     fn decode(&mut self, instruction_one: u8, instruction_two: u8) -> Result<OpCode, String> {
-        let instruction_code: u8 = instruction_one & 0b_00001111;
-        let x: u8 = (instruction_one >> 4) & 0b_00001111; // Register 1 addr
-        let y: u8 = instruction_two & 0b_00001111; // Register 2 addr
-        let n: u8 = (instruction_two >> 4) & 0b_00001111;
+        let instruction_code: u8 = (instruction_one >> 4) & 0b_00001111;
+        let x: u8 = instruction_one & 0b_00001111; // Register 1 addr
+        let y: u8 = (instruction_two >> 4) & 0b_00001111; // Register 2 addr
+        let n: u8 = instruction_two & 0b_00001111;
         let nn: u8 = instruction_two;
-        let nnn: u16 = x as u16 | nn as u16;
+        let nnn: u16 = 0b_0000000000000000 + ((x as u16) << 8) + nn as u16;
 
         match instruction_code {
             0x0 => Ok(OpCode::ClearScreen),
@@ -101,7 +105,7 @@ impl Chip8Machine {
             0x7 => Ok(OpCode::AddValueToRegister { x, nn }),
             0xA => Ok(OpCode::SetIndexRegister { nnn }),
             0xD => Ok(OpCode::Draw { x, y, n }),
-            _ => Err(format!("Could not decode instruction with ID {0}", instruction_code))
+            _ => panic!("Could not decode instruction with ID {0}", instruction_code)
         }
     }
 
@@ -134,8 +138,8 @@ impl Chip8Machine {
 
                     let sprite_row = self.memory[(self.index_register + row as u16) as usize];
                     for bit in 0..8 {
-                        let mask: u8 = (2 as u8).pow(bit);
-                        let enable_pixel: bool = (sprite_row) & mask == sprite_row;
+                        let mask: u8 = (2u8).pow(7-bit);
+                        let enable_pixel: bool = (sprite_row) | mask == sprite_row;
 
                         let pixel_x = x_coord + bit as u8;
                         if pixel_x as usize >= PIXEL_COLUMNS { continue; } // Stop if we're about to go off screen
