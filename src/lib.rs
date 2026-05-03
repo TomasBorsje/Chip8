@@ -3,7 +3,7 @@ use std::io::Error;
 const PIXEL_COLUMNS: usize = 64;
 const PIXEL_ROWS: usize = 32;
 const SCREEN_SIZE: usize = PIXEL_COLUMNS * PIXEL_ROWS; // 64 columns, 32 rows
-const PROG_STARTING_ADDRESS: u16 = 0x050;
+const PROG_STARTING_ADDRESS: u16 = 0x200;
 const FONT_SET: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0,
     0x20, 0x60, 0x20, 0x20, 0x70,
