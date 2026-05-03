@@ -4,6 +4,7 @@ use chip8::Chip8Machine;
 
 fn main() {
     const HERTZ: u64 = 700;
+    const FPS: u64 = 15;
     const FILEPATH: &str = "ibm.ch8";
 
     let mut machine = Chip8Machine::new(FILEPATH).unwrap_or_else(|err| panic!("Couldn't create Chip8Machine: {err}"));
@@ -17,7 +18,10 @@ fn main() {
             let display = machine.get_display();
             print!("{}[2J", 27 as char); // Clear console
             print!("{display}");
-            counter = HERTZ * 2;
+            counter = HERTZ/FPS;
+        }
+        else {
+            counter -= 1;
         }
 
         // Sleep
