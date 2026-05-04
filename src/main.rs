@@ -2,14 +2,15 @@ use std::{thread, time::{self}};
 
 use chip8::Chip8Machine;
 
+// Note: This code is not run as the crate compiles to a DLL at the moment.
 fn main() {
     const HERTZ: u64 = 700;
     const FPS: u64 = 15;
     const FILEPATH: &str = "ibm.ch8";
 
-    let mut machine = Chip8Machine::new(FILEPATH).unwrap_or_else(|err| panic!("Couldn't create Chip8Machine: {err}"));
+    let program = std::fs::read(FILEPATH).expect("Couldn't read FILEPATH");
+    let mut machine = Chip8Machine::new(&program[..]).expect("Couldn't make Chip8Machine");
     let mut counter = 0;
-
     loop {
         machine.cycle();
 

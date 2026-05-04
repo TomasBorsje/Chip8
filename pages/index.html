@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <title>hello-wasm example</title>
+</head>
+<body>
+<p id="display"></p>
+<script type="module">
+    import init, { Chip8Machine } from "./chip8.js";
+
+    init().then(() => {
+        let display = document.getElementById("display");
+        fetch("ibm.ch8").then((file) => {
+            file.bytes().then((bytes) => {
+                console.log("Program is: "+bytes)
+
+                let machine = Chip8Machine.new(bytes)
+                if(!machine) {
+                    console.error("Couldn't instantiate Chip8Machine")
+                    return;
+                }
+
+                // Run some cycles
+                for(let i = 0; i < 700*5; i++) {
+                    machine.cycle()
+                }
+                display.innerHTML = machine.get_display();
+            })
+        }).catch((err) => console.error(err))
+    });
+</script>
+</body>
+</html>

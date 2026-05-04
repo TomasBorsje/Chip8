@@ -1,5 +1,7 @@
 use std::io::Error;
 
+use wasm_bindgen::prelude::*;
+
 const PIXEL_COLUMNS: usize = 64;
 const PIXEL_ROWS: usize = 32;
 const SCREEN_SIZE: usize = PIXEL_COLUMNS * PIXEL_ROWS; // 64 columns, 32 rows
@@ -23,6 +25,7 @@ const FONT_SET: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80,
 ];
 
+#[wasm_bindgen]
 #[derive(Debug)]
 pub struct Chip8Machine {
     memory: [u8; 4096],
@@ -35,8 +38,9 @@ pub struct Chip8Machine {
     display: [bool; SCREEN_SIZE],
 }
 
+#[wasm_bindgen]
 impl Chip8Machine {
-    pub fn new(filepath: &str) -> Result<Chip8Machine, Error> {
+    pub fn new(program: &[u8]) -> Option<Chip8Machine> {
         let mut chip_machine = Chip8Machine { 
             memory: [0; 4096], 
             program_counter: PROG_STARTING_ADDRESS,
@@ -49,13 +53,12 @@ impl Chip8Machine {
         };
         chip_machine.memory[0x050..0x0A0].copy_from_slice(&FONT_SET); // Copy font set into memory
 
-        let program = std::fs::read(filepath)?;
         for (index, byte) in program.iter().enumerate() {
             chip_machine.memory[PROG_STARTING_ADDRESS as usize + index] = *byte;
         }
         println!("Loaded {0} bytes into memory", program.len());
 
-        Ok(chip_machine)
+        Some(chip_machine)
     }
 
     pub fn cycle(&mut self) {
@@ -75,10 +78,6 @@ impl Chip8Machine {
 
         // Execute the instruction
         self.execute(operation);
-
-        // let display = self.get_display();
-        // print!("{}[2J", 27 as char); // Clear console
-        // print!("{display}");
     }
 
     // Fetch the instruction at the current program counter
