@@ -7,11 +7,11 @@
 <body>
 <p id="display"></p>
 <script type="module">
-    import init, { Chip8Machine } from "./chip8.js";
+    import init, { Chip8Machine } from "./pages/chip8.js";
 
     init().then(() => {
         let display = document.getElementById("display");
-        fetch("ibm.ch8").then((file) => {
+        fetch("./pages/ibm.ch8").then((file) => {
             file.bytes().then((bytes) => {
                 console.log("Program is: "+bytes)
 
