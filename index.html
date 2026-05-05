@@ -11,23 +11,31 @@
 <script type="module">
     import init, { Chip8Machine } from "./pages/chip8.js";
 
-    init().then(() => {
+    function runChip8(bytes) {
         let display = document.getElementById("display");
+        console.log("Program is: "+bytes);
+
+        let machine = Chip8Machine.new(bytes);
+        if(!machine) {
+            console.error("Couldn't instantiate Chip8Machine");
+            return;
+        }
+        function cycleMachine() {
+            machine.cycle();
+            display.innerHTML = machine.get_display();
+        }
+
+        let stop = false;
+        let cycleIntervalId = window.setInterval(cycleMachine, 1000/700.0);
+        if(stop) {
+            window.clearInterval(cycleIntervalId);
+        }
+    }
+
+    init().then(() => {
         fetch("./pages/ibm.ch8").then((file) => {
             file.bytes().then((bytes) => {
-                console.log("Program is: "+bytes)
-
-                let machine = Chip8Machine.new(bytes)
-                if(!machine) {
-                    console.error("Couldn't instantiate Chip8Machine")
-                    return;
-                }
-
-                // Run some cycles
-                for(let i = 0; i < 700*5; i++) {
-                    machine.cycle()
-                }
-                display.innerHTML = machine.get_display();
+                runChip8(bytes);
             })
         }).catch((err) => console.error(err))
     });
