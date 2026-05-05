@@ -6,7 +6,9 @@ export class Chip8Machine {
     free(): void;
     [Symbol.dispose](): void;
     cycle(): void;
+    decrement_timers(): void;
     get_display(): string;
+    static input(key: string): void;
     static new(program: Uint8Array): Chip8Machine | undefined;
 }
 
@@ -16,11 +18,14 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_chip8machine_free: (a: number, b: number) => void;
     readonly chip8machine_cycle: (a: number) => void;
+    readonly chip8machine_decrement_timers: (a: number) => void;
     readonly chip8machine_get_display: (a: number) => [number, number];
+    readonly chip8machine_input: (a: number, b: number) => void;
     readonly chip8machine_new: (a: number, b: number) => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
+    readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_start: () => void;
 }
 

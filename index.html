@@ -24,11 +24,17 @@
             machine.cycle();
             display.innerHTML = machine.get_display();
         }
+        function decrementTimers() {
+            machine.decrement_timers();
+        }
 
-        let stop = false;
         let cycleIntervalId = window.setInterval(cycleMachine, 1000/700.0);
+        let timerDecrementId = window.setInterval(decrementTimers, 1000/60.0);
+
+        let stop = false; // TODO: Handle input/button to stop machine
         if(stop) {
             window.clearInterval(cycleIntervalId);
+            window.clearInterval(timerDecrementId);
         }
     }
 

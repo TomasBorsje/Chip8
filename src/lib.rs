@@ -61,15 +61,22 @@ impl Chip8Machine {
         Some(chip_machine)
     }
 
-    pub fn cycle(&mut self) {
+    // Call this 60 times a second!
+    pub fn decrement_timers(&mut self) {
         // Decrement both timers if they're above 0
-        // if self.delay_timer > 0 {
-        //     self.delay_timer -= 1;
-        // }
-        // if self.sound_timer > 0 {
-        //     self.sound_timer -= 1;
-        // }
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
+    }
 
+    pub fn input(key: &str) {
+        todo!();
+    }
+
+    pub fn cycle(&mut self) {
         // Fetch instruction at the PC
         let (instruction_one, instruction_two) = self.fetch();
 
