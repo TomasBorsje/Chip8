@@ -233,6 +233,34 @@ impl Chip8Machine {
                     }
                 }
             }
+            OpCode::PopSubroutine => {}
+            OpCode::CallSubroutine { .. } => {}
+            OpCode::SkipIfEqual { .. } => {}
+            OpCode::SkipIfNotEqual { .. } => {}
+            OpCode::SkipIfRegisterEqual { .. } => {}
+            OpCode::SkipIfRegisterNotEqual { .. } => {}
+            OpCode::Set { .. } => {}
+            OpCode::BinaryOr { .. } => {}
+            OpCode::BinaryAnd { .. } => {}
+            OpCode::LogicalXor { .. } => {}
+            OpCode::Add { .. } => {}
+            OpCode::SubtractXY { .. } => {}
+            OpCode::SubtractYX { .. } => {}
+            OpCode::ShiftRight { .. } => {}
+            OpCode::ShiftLeft { .. } => {}
+            OpCode::JumpWithOffset { .. } => {}
+            OpCode::Random { .. } => {}
+            OpCode::SkipOneIfKey { .. } => {}
+            OpCode::SkipOneIfNotKey { .. } => {}
+            OpCode::SetRegisterToDelayTimer { .. } => {}
+            OpCode::SetDelayTimerToRegister { .. } => {}
+            OpCode::SetSoundTimerToRegister { .. } => {}
+            OpCode::AddRegisterToIndex { .. } => {}
+            OpCode::GetKey { .. } => {}
+            OpCode::FontCharacter { .. } => {}
+            OpCode::BinaryCodedDecimalConversion { .. } => {}
+            OpCode::StoreRegistersToMemory { .. } => {}
+            OpCode::LoadRegistersFromMemory { .. } => {}
         }
     }
 
