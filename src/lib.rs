@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use wasm_bindgen::prelude::*;
 
 const PIXEL_COLUMNS: usize = 64;
@@ -24,8 +23,6 @@ enum OpCode {
     SkipIfRegisterNotEqual { x: u8, y: u8 }, // 9XY0
     SetRegister { x: u8, nn: u8 },           // 6XNN
     AddValueToRegister { x: u8, nn: u8 },    // 7XNN
-    SetIndexRegister { nnn: u16 },           // ANNN
-    Draw { x: u8, y: u8, n: u8 },            // DXYN
     Set { x: u8, y: u8 },                    // 8XY0
     BinaryOr { x: u8, y: u8 },               // 8XY1
     BinaryAnd { x: u8, y: u8 },              // 8XY2
@@ -35,6 +32,21 @@ enum OpCode {
     SubtractYX { x: u8, y: u8 },             // 8XY7
     ShiftRight { x: u8, y: u8 },             // 8XY6
     ShiftLeft { x: u8, y: u8 },              // 8XYE
+    SetIndexRegister { nnn: u16 },           // ANNN
+    JumpWithOffset { nnn: u16 },             // BNNN
+    Random { x: u8, nn: u8 },                // CXNN
+    Draw { x: u8, y: u8, n: u8 },            // DXYN
+    SkipOneIfKey { x: u8 },                  // EX9E
+    SkipOneIfNotKey { x: u8 },               // EXA1
+    SetRegisterToDelayTimer { x: u8 },       // FX07
+    SetDelayTimerToRegister { x: u8 },       // FX15
+    SetSoundTimerToRegister { x: u8 },       // FX18
+    AddRegisterToIndex { x: u8 },            // FX1E
+    GetKey { x: u8 },                        // FX0A
+    FontCharacter { x: u8 },                 // FX29
+    BinaryCodedDecimalConversion { x: u8 },  // FX33
+    StoreRegistersToMemory { x: u8 },        // FX55
+    LoadRegistersFromMemory { x: u8 },       // FX65
 }
 
 #[wasm_bindgen]
@@ -47,7 +59,7 @@ pub struct Chip8Machine {
     delay_timer: u8,
     sound_timer: u8,
     registers: [u8; 16],
-    current_input: HashSet<u8>,
+    current_input: Option<u8>,
     display: [bool; SCREEN_SIZE],
 }
 
@@ -62,7 +74,7 @@ impl Chip8Machine {
             delay_timer: 0,
             sound_timer: 0,
             registers: [0; 16],
-            current_input: HashSet::new(),
+            current_input: None,
             display: [false; 64 * 32],
         };
         chip_machine.memory[0x050..0x0A0].copy_from_slice(&FONT_SET); // Copy font set into memory
@@ -86,12 +98,8 @@ impl Chip8Machine {
         }
     }
 
-    pub fn input_down(&mut self, key: u8) {
-        self.current_input.insert(key);
-    }
-
-    pub fn input_up(&mut self, key: u8) {
-        self.current_input.remove(&key);
+    pub fn input(&mut self, key: u8) {
+        self.current_input = Some(key);
     }
 
     pub fn cycle(&mut self) {
@@ -147,13 +155,30 @@ impl Chip8Machine {
                 0x6 => Ok(OpCode::ShiftLeft { x, y }),
                 0x7 => Ok(OpCode::SubtractYX { x, y }),
                 0xE => Ok(OpCode::ShiftRight { x, y }),
-                _ => panic!("Unrecognised 8XY_ opcode with nibble {n}"),
+                _ => panic!("Unrecognised 8XYN opcode with nibble {n}"),
             },
             0x9 => Ok(OpCode::SkipIfRegisterNotEqual { x, y }),
             0xA => Ok(OpCode::SetIndexRegister { nnn }),
+            0xC => Ok(OpCode::Random {x, nn}),
             0xD => Ok(OpCode::Draw { x, y, n }),
-
-            _ => panic!("Could not decode instruction with ID {0}", instruction_code),
+            0xE => match nn {
+                0x9E => Ok(OpCode::SkipOneIfKey {x}),
+                0xA1 => Ok(OpCode::SkipOneIfNotKey {x}),
+                _ => panic!("Unrecognised EXNN opcode with nibble {nn}"),
+            }
+            0xF => match nn {
+                0x07 => Ok(OpCode::SetRegisterToDelayTimer {x}),
+                0x0A => Ok(OpCode::GetKey{x}),
+                0x15 => Ok(OpCode::SetDelayTimerToRegister {x}),
+                0x18 => Ok(OpCode::SetSoundTimerToRegister {x}),
+                0x1E => Ok(OpCode::AddRegisterToIndex {x}),
+                0x29 => Ok(OpCode::FontCharacter {x}),
+                0x33 => Ok(OpCode::BinaryCodedDecimalConversion {x}),
+                0x55 => Ok(OpCode::StoreRegistersToMemory {x}),
+                0x65 => Ok(OpCode::LoadRegistersFromMemory {x}),
+                _ => panic!("Unrecognised FXNN opcode with nibble {nn}"),
+            }
+            _ => panic!("Could not decode instruction with ID {instruction_code}"),
         }
     }
 
