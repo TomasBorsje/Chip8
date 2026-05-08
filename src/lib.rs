@@ -113,9 +113,9 @@ impl Chip8Machine {
 
         // Execute the instruction
         self.execute(operation);
+        self.current_input = None;
     }
 
-    // Fetch the instruction at the current program counter
     fn fetch(&mut self) -> (u8, u8) {
         let instruction_one: u8 = self.memory[self.program_counter as usize];
         let instruction_two: u8 = self.memory[self.program_counter as usize + 1];
