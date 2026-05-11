@@ -19,7 +19,7 @@
         const myAudio = new Audio('./pages/beep.mp3');
         myAudio.loop = true;
 
-        const machine = Chip8Machine.new(bytes, true);
+        const machine = Chip8Machine.new(bytes, false);
         if(!machine) {
             console.error("Couldn't instantiate Chip8Machine");
             return;
@@ -75,7 +75,7 @@
     }
 
     init().then(() => {
-        fetch("./pages/BC_test.ch8").then((file) => {
+        fetch("./pages/test_opcode.ch8").then((file) => {
             file.bytes().then((bytes) => {
                 runChip8(bytes);
             })

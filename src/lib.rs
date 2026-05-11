@@ -16,40 +16,40 @@ const FONT_SET: [u8; 80] = [
 const CARRY_FLAG_REG: usize = 0xF;
 
 enum OpCode {
-    ClearScreen,                             // 00E0
-    PopSubroutine,                           // 00EE
-    Jump { nnn: u16 },                       // 1NNN
-    CallSubroutine { nnn: u16 },             // 2NNN
-    SkipIfEqual { x: u8, nn: u8 },           // 3XNN
-    SkipIfNotEqual { x: u8, nn: u8 },        // 4XNN
-    SkipIfRegisterEqual { x: u8, y: u8 },    // 5XY0
-    SkipIfRegisterNotEqual { x: u8, y: u8 }, // 9XY0
-    SetRegister { x: u8, nn: u8 },           // 6XNN
-    AddValueToRegister { x: u8, nn: u8 },    // 7XNN
-    SetRegisterToRegister { x: u8, y: u8 },  // 8XY0
-    BinaryOr { x: u8, y: u8 },               // 8XY1
-    BinaryAnd { x: u8, y: u8 },              // 8XY2
-    LogicalXor { x: u8, y: u8 },             // 8XY3
-    AddRegisterToRegister { x: u8, y: u8 },  // 8XY4
-    SubtractXY { x: u8, y: u8 },             // 8XY5
-    SubtractYX { x: u8, y: u8 },             // 8XY7
-    ShiftRight { x: u8, y: u8 },             // 8XY6
-    ShiftLeft { x: u8, y: u8 },              // 8XYE
-    SetIndexRegister { nnn: u16 },           // ANNN
-    JumpWithOffset { nnn: u16 },             // BNNN
-    Random { x: u8, nn: u8 },                // CXNN
-    Draw { x: u8, y: u8, n: u8 },            // DXYN
-    SkipOneIfKey { x: u8 },                  // EX9E
-    SkipOneIfNotKey { x: u8 },               // EXA1
-    SetRegisterToDelayTimer { x: u8 },       // FX07
-    SetDelayTimerToRegister { x: u8 },       // FX15
-    SetSoundTimerToRegister { x: u8 },       // FX18
-    AddRegisterToIndex { x: u8 },            // FX1E
-    GetKey { x: u8 },                        // FX0A
-    FontCharacter { x: u8 },                 // FX29
-    BinaryCodedDecimalConversion { x: u8 },  // FX33
-    StoreRegistersToMemory { x: u8 },        // FX55
-    LoadRegistersFromMemory { x: u8 },       // FX65
+    ClearScreen,                                // 00E0
+    PopSubroutine,                              // 00EE
+    Jump { nnn: u16 },                          // 1NNN
+    CallSubroutine { nnn: u16 },                // 2NNN
+    SkipIfEqual { x: u8, nn: u8 },              // 3XNN
+    SkipIfNotEqual { x: u8, nn: u8 },           // 4XNN
+    SkipIfRegisterEqual { x: u8, y: u8 },       // 5XY0
+    SkipIfRegisterNotEqual { x: u8, y: u8 },    // 9XY0
+    SetRegister { x: u8, nn: u8 },              // 6XNN
+    AddValueToRegister { x: u8, nn: u8 },       // 7XNN
+    SetRegisterToRegister { x: u8, y: u8 },     // 8XY0
+    BinaryOr { x: u8, y: u8 },                  // 8XY1
+    BinaryAnd { x: u8, y: u8 },                 // 8XY2
+    LogicalXor { x: u8, y: u8 },                // 8XY3
+    AddRegisterToRegister { x: u8, y: u8 },     // 8XY4
+    SubtractXY { x: u8, y: u8 },                // 8XY5
+    SubtractYX { x: u8, y: u8 },                // 8XY7
+    ShiftRight { x: u8, y: u8 },                // 8XY6
+    ShiftLeft { x: u8, y: u8 },                 // 8XYE
+    SetIndexRegister { nnn: u16 },              // ANNN
+    JumpWithOffset { x: u8, nnn: u16 }, // BNNN
+    Random { x: u8, nn: u8 },                   // CXNN
+    Draw { x: u8, y: u8, n: u8 },               // DXYN
+    SkipIfKey { x: u8 },                     // EX9E
+    SkipIfNotKey { x: u8 },                  // EXA1
+    SetRegisterToDelayTimer { x: u8 },          // FX07
+    SetDelayTimerToRegister { x: u8 },          // FX15
+    SetSoundTimerToRegister { x: u8 },          // FX18
+    AddRegisterToIndex { x: u8 },               // FX1E
+    GetKey { x: u8 },                           // FX0A
+    FontCharacter { x: u8 },                    // FX29
+    BinaryCodedDecimalConversion { x: u8 },     // FX33
+    StoreRegistersToMemory { x: u8 },           // FX55
+    LoadRegistersFromMemory { x: u8 },          // FX65
 }
 
 #[wasm_bindgen]
@@ -159,19 +159,19 @@ impl Chip8Machine {
                 0x3 => Ok(OpCode::LogicalXor { x, y }),
                 0x4 => Ok(OpCode::AddRegisterToRegister { x, y }),
                 0x5 => Ok(OpCode::SubtractXY { x, y }),
-                0x6 => Ok(OpCode::ShiftLeft { x, y }),
+                0x6 => Ok(OpCode::ShiftRight { x, y }),
                 0x7 => Ok(OpCode::SubtractYX { x, y }),
-                0xE => Ok(OpCode::ShiftRight { x, y }),
+                0xE => Ok(OpCode::ShiftLeft { x, y }),
                 _ => panic!("Unrecognised 8XYN opcode with nibble {n}"),
             },
             0x9 => Ok(OpCode::SkipIfRegisterNotEqual { x, y }),
             0xA => Ok(OpCode::SetIndexRegister { nnn }),
-            0xB => Ok(OpCode::JumpWithOffset { nnn }),
+            0xB => Ok(OpCode::JumpWithOffset { x, nnn }),
             0xC => Ok(OpCode::Random { x, nn }),
             0xD => Ok(OpCode::Draw { x, y, n }),
             0xE => match nn {
-                0x9E => Ok(OpCode::SkipOneIfKey { x }),
-                0xA1 => Ok(OpCode::SkipOneIfNotKey { x }),
+                0x9E => Ok(OpCode::SkipIfKey { x }),
+                0xA1 => Ok(OpCode::SkipIfNotKey { x }),
                 _ => panic!("Unrecognised EXNN opcode with NN {nn}"),
             },
             0xF => match nn {
@@ -197,48 +197,6 @@ impl Chip8Machine {
             }
             OpCode::Jump { nnn } => {
                 self.program_counter = nnn;
-            }
-            OpCode::SetRegister { x, nn } => {
-                self.registers[x as usize] = nn;
-            }
-            OpCode::AddValueToRegister { x, nn } => {
-                self.registers[x as usize] += nn;
-            }
-            OpCode::SetIndexRegister { nnn } => {
-                self.index_register = nnn;
-            }
-            OpCode::Draw { x, y, n } => {
-                let x_coord = self.registers[x as usize] % PIXEL_COLUMNS as u8;
-                let y_coord = self.registers[y as usize] % PIXEL_ROWS as u8;
-                self.registers[CARRY_FLAG_REG] = 0;
-
-                // Draw the sprite, setting 0xF to 1 if anything was turned off by this
-                for row in 0..n {
-                    let pixel_y = y_coord + row;
-                    if pixel_y as usize >= PIXEL_ROWS {
-                        break;
-                    }
-
-                    let sprite_row = self.memory[(self.index_register + row as u16) as usize];
-                    for bit in 0..8 {
-                        let mask: u8 = 0b_10000000 >> bit;
-                        let sprite_pixel_on: bool = (sprite_row | mask) == sprite_row;
-
-                        let pixel_x = x_coord + bit as u8;
-                        if pixel_x >= PIXEL_COLUMNS as u8 {
-                            continue; // Stop if we're about to go off-screen
-                        }
-                        let display_pixel_index = pixel_y as usize * PIXEL_ROWS + pixel_x as usize;
-                        let display_pixel_on = self.display[display_pixel_index];
-
-                        if sprite_pixel_on && display_pixel_on {
-                            self.registers[0xF] = 1;
-                            self.display[display_pixel_index] = false;
-                        } else if sprite_pixel_on  {
-                            self.display[display_pixel_index] = true;
-                        }
-                    }
-                }
             }
             OpCode::PopSubroutine => {
                 let prev = self
@@ -270,6 +228,12 @@ impl Chip8Machine {
                 if self.registers[x as usize] != self.registers[y as usize] {
                     self.program_counter += 2;
                 }
+            }
+            OpCode::SetRegister { x, nn } => {
+                self.registers[x as usize] = nn;
+            }
+            OpCode::AddValueToRegister { x, nn } => {
+                self.registers[x as usize] += nn;
             }
             OpCode::SetRegisterToRegister { x, y } => {
                 self.registers[x as usize] = self.registers[y as usize];
@@ -326,35 +290,75 @@ impl Chip8Machine {
                     self.registers[x as usize] = self.registers[y as usize];
                 }
                 // Set carry flag to bit about to be shifted out
-                if self.registers[x as usize] >= 0b_10000000 {
+                if self.registers[x as usize] & 0b_10000000 == 0b_10000000 {
                     self.registers[CARRY_FLAG_REG] = 1;
                 } else {
                     self.registers[CARRY_FLAG_REG] = 0;
                 }
                 self.registers[x as usize] = self.registers[x as usize] << 1;
             }
-            OpCode::JumpWithOffset { nnn } => {
+            OpCode::SetIndexRegister { nnn } => {
+                self.index_register = nnn;
+            }
+            OpCode::JumpWithOffset { x, nnn } => {
                 // TODO: Maybe add config for modern behaviour
-                self.program_counter = self.registers[0] as u16 + nnn;
+                if self.original_behaviour {
+                    self.program_counter = self.registers[0x0] as u16 + nnn;
+                } else {
+                    self.program_counter = self.registers[x as usize] as u16 + nnn;
+                }
             }
             OpCode::Random { x, nn } => {
                 let random_num = self.rand.random::<u8>();
-                self.registers[x as usize] = nn & random_num;
+                self.registers[x as usize] = random_num & nn;
             }
-            OpCode::SkipOneIfKey { x } => match self.current_input {
+            OpCode::Draw { x, y, n } => {
+                let x_coord = self.registers[x as usize] % PIXEL_COLUMNS as u8;
+                let y_coord = self.registers[y as usize] % PIXEL_ROWS as u8;
+                self.registers[CARRY_FLAG_REG] = 0;
+
+                // Draw the sprite, setting 0xF to 1 if anything was turned off by this
+                for row in 0..n {
+                    let pixel_y = y_coord + row;
+                    if pixel_y as usize >= PIXEL_ROWS {
+                        break;
+                    }
+
+                    let sprite_row = self.memory[(self.index_register + row as u16) as usize];
+                    for bit in 0..8 {
+                        let mask: u8 = 0b_10000000 >> bit;
+                        let sprite_pixel_on: bool = (sprite_row | mask) == sprite_row;
+
+                        let pixel_x = x_coord + bit as u8;
+                        if pixel_x >= PIXEL_COLUMNS as u8 {
+                            continue; // Stop if we're about to go off-screen
+                        }
+                        let display_pixel_index = pixel_y as usize * PIXEL_COLUMNS + pixel_x as usize;
+                        let display_pixel_on = self.display[display_pixel_index];
+
+                        if sprite_pixel_on && display_pixel_on {
+                            self.registers[CARRY_FLAG_REG] = 1;
+                            self.display[display_pixel_index] = false;
+                        } else if sprite_pixel_on {
+                            self.display[display_pixel_index] = true;
+                        }
+                    }
+                }
+            }
+            OpCode::SkipIfKey { x } => match self.current_input {
                 None => {}
                 Some(key) => {
-                    if key == x {
+                    if key == self.registers[x as usize] {
                         self.program_counter += 2;
                     }
                 }
             },
-            OpCode::SkipOneIfNotKey { x } => match self.current_input {
+            OpCode::SkipIfNotKey { x } => match self.current_input {
                 None => {
                     self.program_counter += 2;
                 }
                 Some(key) => {
-                    if key != x {
+                    if key != self.registers[x as usize] {
                         self.program_counter += 2;
                     }
                 }
@@ -380,14 +384,14 @@ impl Chip8Machine {
                         self.program_counter -= 2;
                     }
                     Some(key) => {
-                        if key != x {
+                        if key != self.registers[x as usize] {
                             self.program_counter -= 2; // Block until the key is pressed
                         }
                     }
                 }
             }
             OpCode::FontCharacter { x } => {
-                self.index_register = FONT_SET_STARTING_ADDRESS + (x as u16) * 5;
+                self.index_register = FONT_SET_STARTING_ADDRESS + (self.registers[x as usize] as u16) * 5;
             }
             OpCode::BinaryCodedDecimalConversion { x } => {
                 let value = self.registers[x as usize];
@@ -400,13 +404,13 @@ impl Chip8Machine {
             }
             OpCode::StoreRegistersToMemory { x } => {
                 if self.original_behaviour {
-                    for register in 0..x {
+                    for register in 0..=x {
                         self.memory[self.index_register as usize] =
                             self.registers[register as usize];
                         self.index_register += 1;
                     }
                 } else {
-                    for register in 0..x {
+                    for register in 0..=x  {
                         self.memory[(self.index_register + register as u16) as usize] =
                             self.registers[register as usize];
                     }
@@ -414,13 +418,13 @@ impl Chip8Machine {
             }
             OpCode::LoadRegistersFromMemory { x } => {
                 if self.original_behaviour {
-                    for register in 0..x {
+                    for register in 0..=x {
                         self.registers[register as usize] =
                             self.memory[self.index_register as usize];
                         self.index_register += 1;
                     }
                 } else {
-                    for register in 0..x {
+                    for register in 0..=x {
                         self.registers[register as usize] =
                             self.memory[(self.index_register + register as u16) as usize];
                     }
