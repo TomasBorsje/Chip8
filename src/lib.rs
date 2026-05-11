@@ -210,7 +210,7 @@ impl Chip8Machine {
             OpCode::Draw { x, y, n } => {
                 let x_coord = self.registers[x as usize] % PIXEL_COLUMNS as u8;
                 let y_coord = self.registers[y as usize] % PIXEL_ROWS as u8;
-                self.registers[0xF] = 0;
+                self.registers[CARRY_FLAG_REG] = 0;
 
                 // Draw the sprite, setting 0xF to 1 if anything was turned off by this
                 for row in 0..n {
@@ -221,22 +221,21 @@ impl Chip8Machine {
 
                     let sprite_row = self.memory[(self.index_register + row as u16) as usize];
                     for bit in 0..8 {
-                        let mask: u8 = (2u8).pow(7 - bit);
-                        let enable_pixel: bool = (sprite_row) | mask == sprite_row;
+                        let mask: u8 = 0b_10000000 >> bit;
+                        let sprite_pixel_on: bool = (sprite_row | mask) == sprite_row;
 
                         let pixel_x = x_coord + bit as u8;
-                        if pixel_x as usize >= PIXEL_COLUMNS {
-                            continue;
-                        } // Stop if we're about to go off screen
+                        if pixel_x >= PIXEL_COLUMNS as u8 {
+                            continue; // Stop if we're about to go off-screen
+                        }
+                        let display_pixel_index = pixel_y as usize * PIXEL_ROWS + pixel_x as usize;
+                        let display_pixel_on = self.display[display_pixel_index];
 
-                        let pixel_index = pixel_y as usize * PIXEL_ROWS + pixel_x as usize;
-
-                        if enable_pixel {
-                            if self.display[pixel_index] {
-                                // If we're about to turn off a pixel, set 0xF to 1
-                                self.registers[0xF] = 1;
-                            }
-                            self.display[pixel_index] = !self.display[pixel_index];
+                        if sprite_pixel_on && display_pixel_on {
+                            self.registers[0xF] = 1;
+                            self.display[display_pixel_index] = false;
+                        } else if sprite_pixel_on  {
+                            self.display[display_pixel_index] = true;
                         }
                     }
                 }
@@ -327,7 +326,11 @@ impl Chip8Machine {
                     self.registers[x as usize] = self.registers[y as usize];
                 }
                 // Set carry flag to bit about to be shifted out
-                self.registers[CARRY_FLAG_REG] = self.registers[x as usize] & 0b_10000000;
+                if self.registers[x as usize] >= 0b_10000000 {
+                    self.registers[CARRY_FLAG_REG] = 1;
+                } else {
+                    self.registers[CARRY_FLAG_REG] = 0;
+                }
                 self.registers[x as usize] = self.registers[x as usize] << 1;
             }
             OpCode::JumpWithOffset { nnn } => {
@@ -439,5 +442,9 @@ impl Chip8Machine {
             output.push('\n');
         }
         output
+    }
+
+    pub fn get_playing_sound(&self) -> bool {
+        self.sound_timer > 0
     }
 }

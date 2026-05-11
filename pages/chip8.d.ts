@@ -8,8 +8,9 @@ export class Chip8Machine {
     cycle(): void;
     decrement_timers(): void;
     get_display(): string;
-    static input(key: string): void;
-    static new(program: Uint8Array): Chip8Machine | undefined;
+    get_playing_sound(): boolean;
+    input(key: number): void;
+    static new(program: Uint8Array, original_behaviour: boolean): Chip8Machine | undefined;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -20,12 +21,14 @@ export interface InitOutput {
     readonly chip8machine_cycle: (a: number) => void;
     readonly chip8machine_decrement_timers: (a: number) => void;
     readonly chip8machine_get_display: (a: number) => [number, number];
+    readonly chip8machine_get_playing_sound: (a: number) => number;
     readonly chip8machine_input: (a: number, b: number) => void;
-    readonly chip8machine_new: (a: number, b: number) => number;
+    readonly chip8machine_new: (a: number, b: number, c: number) => number;
+    readonly __wbindgen_exn_store: (a: number) => void;
+    readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
-    readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_start: () => void;
 }
 

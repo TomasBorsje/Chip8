@@ -6,7 +6,7 @@ use chip8::Chip8Machine;
 fn main() {
     const HERTZ: u64 = 700;
     const FPS: u64 = 15;
-    const FILEPATH: &str = "ibm.ch8";
+    const FILEPATH: &str = "pages/ibm.ch8";
 
     let program = std::fs::read(FILEPATH).expect("Couldn't read FILEPATH");
     let mut machine = Chip8Machine::new(&program[..], false).expect("Couldn't make Chip8Machine");

@@ -11,22 +11,57 @@
 <script type="module">
     import init, { Chip8Machine } from "./pages/chip8.js";
 
+
     function runChip8(bytes) {
-        let display = document.getElementById("display");
         console.log("Program is: "+bytes);
 
-        let machine = Chip8Machine.new(bytes);
+        const display = document.getElementById("display");
+        const myAudio = new Audio('./pages/beep.mp3');
+        myAudio.loop = true;
+
+        const machine = Chip8Machine.new(bytes, true);
         if(!machine) {
             console.error("Couldn't instantiate Chip8Machine");
             return;
         }
         function cycleMachine() {
             machine.cycle();
+
+            // Set display and sound
             display.innerHTML = machine.get_display();
+            if(machine.get_playing_sound()) {
+                if(myAudio.paused) {
+                    myAudio.play()
+                }
+            } else {
+                myAudio.pause();
+            }
         }
         function decrementTimers() {
             machine.decrement_timers();
         }
+        function handleKeyUp(event) {
+            console.log("Key up: "+event.code);
+            switch (event.code) {
+                case "Digit1": { machine.input(0x1); break; }
+                case "Digit2": { machine.input(0x2); break; }
+                case "Digit3": { machine.input(0x3); break; }
+                case "Digit4": { machine.input(0xC); break; }
+                case "KeyQ": { machine.input(0x4); break; }
+                case "KeyW": { machine.input(0x5); break; }
+                case "KeyE": { machine.input(0x6); break; }
+                case "KeyR": { machine.input(0xD); break; }
+                case "KeyA": { machine.input(0x7); break; }
+                case "KeyS": { machine.input(0x8); break; }
+                case "KeyD": { machine.input(0x9); break; }
+                case "KeyF": { machine.input(0xE); break; }
+                case "KeyZ": { machine.input(0xA); break; }
+                case "KeyX": { machine.input(0x0); break; }
+                case "KeyC": { machine.input(0xB); break; }
+                case "KeyV": { machine.input(0xF); break; }
+            }
+        }
+        addEventListener("keyup", (event) => handleKeyUp(event));
 
         let cycleIntervalId = window.setInterval(cycleMachine, 1000/700.0);
         let timerDecrementId = window.setInterval(decrementTimers, 1000/60.0);
@@ -35,11 +70,12 @@
         if(stop) {
             window.clearInterval(cycleIntervalId);
             window.clearInterval(timerDecrementId);
+            machine.free();
         }
     }
 
     init().then(() => {
-        fetch("./pages/ibm.ch8").then((file) => {
+        fetch("./pages/BC_test.ch8").then((file) => {
             file.bytes().then((bytes) => {
                 runChip8(bytes);
             })
