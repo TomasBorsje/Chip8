@@ -1,9 +1,11 @@
+use rand::prelude::*;
 use wasm_bindgen::prelude::*;
 
 const PIXEL_COLUMNS: usize = 64;
 const PIXEL_ROWS: usize = 32;
 const SCREEN_SIZE: usize = PIXEL_COLUMNS * PIXEL_ROWS; // 64 columns, 32 rows
 const PROG_STARTING_ADDRESS: u16 = 0x200;
+const FONT_SET_STARTING_ADDRESS: u16 = 0x050;
 const FONT_SET: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, 0x20, 0x60, 0x20, 0x20, 0x70, 0xF0, 0x10, 0xF0, 0x80, 0xF0, 0xF0,
     0x10, 0xF0, 0x10, 0xF0, 0x90, 0x90, 0xF0, 0x10, 0x10, 0xF0, 0x80, 0xF0, 0x10, 0xF0, 0xF0, 0x80,
@@ -11,6 +13,7 @@ const FONT_SET: [u8; 80] = [
     0x10, 0xF0, 0xF0, 0x90, 0xF0, 0x90, 0x90, 0xE0, 0x90, 0xE0, 0x90, 0xE0, 0xF0, 0x80, 0x80, 0x80,
     0xF0, 0xE0, 0x90, 0x90, 0x90, 0xE0, 0xF0, 0x80, 0xF0, 0x80, 0xF0, 0xF0, 0x80, 0xF0, 0x80, 0x80,
 ];
+const CARRY_FLAG_REG: usize = 0xF;
 
 enum OpCode {
     ClearScreen,                             // 00E0
@@ -23,11 +26,11 @@ enum OpCode {
     SkipIfRegisterNotEqual { x: u8, y: u8 }, // 9XY0
     SetRegister { x: u8, nn: u8 },           // 6XNN
     AddValueToRegister { x: u8, nn: u8 },    // 7XNN
-    Set { x: u8, y: u8 },                    // 8XY0
+    SetRegisterToRegister { x: u8, y: u8 },  // 8XY0
     BinaryOr { x: u8, y: u8 },               // 8XY1
     BinaryAnd { x: u8, y: u8 },              // 8XY2
     LogicalXor { x: u8, y: u8 },             // 8XY3
-    Add { x: u8, y: u8 },                    // 8XY4
+    AddRegisterToRegister { x: u8, y: u8 },  // 8XY4
     SubtractXY { x: u8, y: u8 },             // 8XY5
     SubtractYX { x: u8, y: u8 },             // 8XY7
     ShiftRight { x: u8, y: u8 },             // 8XY6
@@ -61,11 +64,13 @@ pub struct Chip8Machine {
     registers: [u8; 16],
     current_input: Option<u8>,
     display: [bool; SCREEN_SIZE],
+    original_behaviour: bool, // Use modern shift opcode behaviour
+    rand: ThreadRng,
 }
 
 #[wasm_bindgen]
 impl Chip8Machine {
-    pub fn new(program: &[u8]) -> Option<Chip8Machine> {
+    pub fn new(program: &[u8], original_behaviour: bool) -> Option<Chip8Machine> {
         let mut chip_machine = Chip8Machine {
             memory: [0; 4096],
             program_counter: PROG_STARTING_ADDRESS,
@@ -75,9 +80,11 @@ impl Chip8Machine {
             sound_timer: 0,
             registers: [0; 16],
             current_input: None,
-            display: [false; 64 * 32],
+            display: [false; SCREEN_SIZE],
+            original_behaviour,
+            rand: rand::rng(),
         };
-        chip_machine.memory[0x050..0x0A0].copy_from_slice(&FONT_SET); // Copy font set into memory
+        chip_machine.memory[(FONT_SET_STARTING_ADDRESS as usize)..0x0A0].copy_from_slice(&FONT_SET); // Copy font set into memory
 
         for (index, byte) in program.iter().enumerate() {
             chip_machine.memory[PROG_STARTING_ADDRESS as usize + index] = *byte;
@@ -146,11 +153,11 @@ impl Chip8Machine {
             0x6 => Ok(OpCode::SetRegister { x, nn }),
             0x7 => Ok(OpCode::AddValueToRegister { x, nn }),
             0x8 => match n {
-                0x0 => Ok(OpCode::Set { x, y }),
+                0x0 => Ok(OpCode::SetRegisterToRegister { x, y }),
                 0x1 => Ok(OpCode::BinaryOr { x, y }),
                 0x2 => Ok(OpCode::BinaryAnd { x, y }),
                 0x3 => Ok(OpCode::LogicalXor { x, y }),
-                0x4 => Ok(OpCode::Add { x, y }),
+                0x4 => Ok(OpCode::AddRegisterToRegister { x, y }),
                 0x5 => Ok(OpCode::SubtractXY { x, y }),
                 0x6 => Ok(OpCode::ShiftLeft { x, y }),
                 0x7 => Ok(OpCode::SubtractYX { x, y }),
@@ -159,25 +166,26 @@ impl Chip8Machine {
             },
             0x9 => Ok(OpCode::SkipIfRegisterNotEqual { x, y }),
             0xA => Ok(OpCode::SetIndexRegister { nnn }),
-            0xC => Ok(OpCode::Random {x, nn}),
+            0xB => Ok(OpCode::JumpWithOffset { nnn }),
+            0xC => Ok(OpCode::Random { x, nn }),
             0xD => Ok(OpCode::Draw { x, y, n }),
             0xE => match nn {
-                0x9E => Ok(OpCode::SkipOneIfKey {x}),
-                0xA1 => Ok(OpCode::SkipOneIfNotKey {x}),
-                _ => panic!("Unrecognised EXNN opcode with nibble {nn}"),
-            }
+                0x9E => Ok(OpCode::SkipOneIfKey { x }),
+                0xA1 => Ok(OpCode::SkipOneIfNotKey { x }),
+                _ => panic!("Unrecognised EXNN opcode with NN {nn}"),
+            },
             0xF => match nn {
-                0x07 => Ok(OpCode::SetRegisterToDelayTimer {x}),
-                0x0A => Ok(OpCode::GetKey{x}),
-                0x15 => Ok(OpCode::SetDelayTimerToRegister {x}),
-                0x18 => Ok(OpCode::SetSoundTimerToRegister {x}),
-                0x1E => Ok(OpCode::AddRegisterToIndex {x}),
-                0x29 => Ok(OpCode::FontCharacter {x}),
-                0x33 => Ok(OpCode::BinaryCodedDecimalConversion {x}),
-                0x55 => Ok(OpCode::StoreRegistersToMemory {x}),
-                0x65 => Ok(OpCode::LoadRegistersFromMemory {x}),
-                _ => panic!("Unrecognised FXNN opcode with nibble {nn}"),
-            }
+                0x07 => Ok(OpCode::SetRegisterToDelayTimer { x }),
+                0x0A => Ok(OpCode::GetKey { x }),
+                0x15 => Ok(OpCode::SetDelayTimerToRegister { x }),
+                0x18 => Ok(OpCode::SetSoundTimerToRegister { x }),
+                0x1E => Ok(OpCode::AddRegisterToIndex { x }),
+                0x29 => Ok(OpCode::FontCharacter { x }),
+                0x33 => Ok(OpCode::BinaryCodedDecimalConversion { x }),
+                0x55 => Ok(OpCode::StoreRegistersToMemory { x }),
+                0x65 => Ok(OpCode::LoadRegistersFromMemory { x }),
+                _ => panic!("Unrecognised FXNN opcode with NN {nn}"),
+            },
             _ => panic!("Could not decode instruction with ID {instruction_code}"),
         }
     }
@@ -233,34 +241,188 @@ impl Chip8Machine {
                     }
                 }
             }
-            OpCode::PopSubroutine => {}
-            OpCode::CallSubroutine { .. } => {}
-            OpCode::SkipIfEqual { .. } => {}
-            OpCode::SkipIfNotEqual { .. } => {}
-            OpCode::SkipIfRegisterEqual { .. } => {}
-            OpCode::SkipIfRegisterNotEqual { .. } => {}
-            OpCode::Set { .. } => {}
-            OpCode::BinaryOr { .. } => {}
-            OpCode::BinaryAnd { .. } => {}
-            OpCode::LogicalXor { .. } => {}
-            OpCode::Add { .. } => {}
-            OpCode::SubtractXY { .. } => {}
-            OpCode::SubtractYX { .. } => {}
-            OpCode::ShiftRight { .. } => {}
-            OpCode::ShiftLeft { .. } => {}
-            OpCode::JumpWithOffset { .. } => {}
-            OpCode::Random { .. } => {}
-            OpCode::SkipOneIfKey { .. } => {}
-            OpCode::SkipOneIfNotKey { .. } => {}
-            OpCode::SetRegisterToDelayTimer { .. } => {}
-            OpCode::SetDelayTimerToRegister { .. } => {}
-            OpCode::SetSoundTimerToRegister { .. } => {}
-            OpCode::AddRegisterToIndex { .. } => {}
-            OpCode::GetKey { .. } => {}
-            OpCode::FontCharacter { .. } => {}
-            OpCode::BinaryCodedDecimalConversion { .. } => {}
-            OpCode::StoreRegistersToMemory { .. } => {}
-            OpCode::LoadRegistersFromMemory { .. } => {}
+            OpCode::PopSubroutine => {
+                let prev = self
+                    .stack
+                    .pop()
+                    .expect("No previous address on stack when popping subroutine!");
+                self.program_counter = prev;
+            }
+            OpCode::CallSubroutine { nnn } => {
+                self.stack.push(self.program_counter);
+                self.program_counter = nnn;
+            }
+            OpCode::SkipIfEqual { x, nn } => {
+                if self.registers[x as usize] == nn {
+                    self.program_counter += 2;
+                }
+            }
+            OpCode::SkipIfNotEqual { x, nn } => {
+                if self.registers[x as usize] != nn {
+                    self.program_counter += 2;
+                }
+            }
+            OpCode::SkipIfRegisterEqual { x, y } => {
+                if self.registers[x as usize] == self.registers[y as usize] {
+                    self.program_counter += 2;
+                }
+            }
+            OpCode::SkipIfRegisterNotEqual { x, y } => {
+                if self.registers[x as usize] != self.registers[y as usize] {
+                    self.program_counter += 2;
+                }
+            }
+            OpCode::SetRegisterToRegister { x, y } => {
+                self.registers[x as usize] = self.registers[y as usize];
+            }
+            OpCode::BinaryOr { x, y } => {
+                self.registers[x as usize] =
+                    self.registers[x as usize] | self.registers[y as usize];
+            }
+            OpCode::BinaryAnd { x, y } => {
+                self.registers[x as usize] =
+                    self.registers[x as usize] & self.registers[y as usize];
+            }
+            OpCode::LogicalXor { x, y } => {
+                self.registers[x as usize] =
+                    self.registers[x as usize] ^ self.registers[y as usize];
+            }
+            OpCode::AddRegisterToRegister { x, y } => {
+                self.registers[x as usize] += self.registers[y as usize];
+                // If this overflows, set VF to 1
+                if self.registers[x as usize] < self.registers[y as usize] {
+                    self.registers[CARRY_FLAG_REG] = 1;
+                } else {
+                    self.registers[CARRY_FLAG_REG] = 0;
+                }
+            }
+            OpCode::SubtractXY { x, y } => {
+                if self.registers[x as usize] >= self.registers[y as usize] {
+                    self.registers[CARRY_FLAG_REG] = 1;
+                } else {
+                    self.registers[CARRY_FLAG_REG] = 0;
+                }
+                self.registers[x as usize] =
+                    self.registers[x as usize] - self.registers[y as usize];
+            }
+            OpCode::SubtractYX { x, y } => {
+                if self.registers[y as usize] >= self.registers[x as usize] {
+                    self.registers[CARRY_FLAG_REG] = 1;
+                } else {
+                    self.registers[CARRY_FLAG_REG] = 0;
+                }
+                self.registers[x as usize] =
+                    self.registers[y as usize] - self.registers[x as usize];
+            }
+            OpCode::ShiftRight { x, y } => {
+                if self.original_behaviour {
+                    self.registers[x as usize] = self.registers[y as usize];
+                }
+                // Set carry flag to bit about to be shifted out
+                self.registers[CARRY_FLAG_REG] = self.registers[x as usize] & 0b_00000001;
+                self.registers[x as usize] = self.registers[x as usize] >> 1;
+            }
+            OpCode::ShiftLeft { x, y } => {
+                if self.original_behaviour {
+                    self.registers[x as usize] = self.registers[y as usize];
+                }
+                // Set carry flag to bit about to be shifted out
+                self.registers[CARRY_FLAG_REG] = self.registers[x as usize] & 0b_10000000;
+                self.registers[x as usize] = self.registers[x as usize] << 1;
+            }
+            OpCode::JumpWithOffset { nnn } => {
+                // TODO: Maybe add config for modern behaviour
+                self.program_counter = self.registers[0] as u16 + nnn;
+            }
+            OpCode::Random { x, nn } => {
+                let random_num = self.rand.random::<u8>();
+                self.registers[x as usize] = nn & random_num;
+            }
+            OpCode::SkipOneIfKey { x } => match self.current_input {
+                None => {}
+                Some(key) => {
+                    if key == x {
+                        self.program_counter += 2;
+                    }
+                }
+            },
+            OpCode::SkipOneIfNotKey { x } => match self.current_input {
+                None => {
+                    self.program_counter += 2;
+                }
+                Some(key) => {
+                    if key != x {
+                        self.program_counter += 2;
+                    }
+                }
+            },
+            OpCode::SetRegisterToDelayTimer { x } => {
+                self.registers[x as usize] = self.delay_timer;
+            }
+            OpCode::SetDelayTimerToRegister { x } => {
+                self.delay_timer = self.registers[x as usize];
+            }
+            OpCode::SetSoundTimerToRegister { x } => {
+                self.sound_timer = self.registers[x as usize];
+            }
+            OpCode::AddRegisterToIndex { x } => {
+                self.index_register += self.registers[x as usize] as u16;
+                if self.index_register > 0xFFF {
+                    self.registers[CARRY_FLAG_REG] = 1;
+                }
+            }
+            OpCode::GetKey { x } => {
+                match self.current_input {
+                    None => {
+                        self.program_counter -= 2;
+                    }
+                    Some(key) => {
+                        if key != x {
+                            self.program_counter -= 2; // Block until the key is pressed
+                        }
+                    }
+                }
+            }
+            OpCode::FontCharacter { x } => {
+                self.index_register = FONT_SET_STARTING_ADDRESS + (x as u16) * 5;
+            }
+            OpCode::BinaryCodedDecimalConversion { x } => {
+                let value = self.registers[x as usize];
+                let first_digit = value / 100;
+                let second_digit = (value % 100) / 10;
+                let third_digit = value % 10;
+                self.memory[self.index_register as usize] = first_digit;
+                self.memory[self.index_register as usize + 1] = second_digit;
+                self.memory[self.index_register as usize + 2] = third_digit;
+            }
+            OpCode::StoreRegistersToMemory { x } => {
+                if self.original_behaviour {
+                    for register in 0..x {
+                        self.memory[self.index_register as usize] =
+                            self.registers[register as usize];
+                        self.index_register += 1;
+                    }
+                } else {
+                    for register in 0..x {
+                        self.memory[(self.index_register + register as u16) as usize] =
+                            self.registers[register as usize];
+                    }
+                }
+            }
+            OpCode::LoadRegistersFromMemory { x } => {
+                if self.original_behaviour {
+                    for register in 0..x {
+                        self.registers[register as usize] =
+                            self.memory[self.index_register as usize];
+                        self.index_register += 1;
+                    }
+                } else {
+                    for register in 0..x {
+                        self.registers[register as usize] =
+                            self.memory[(self.index_register + register as u16) as usize];
+                    }
+                }
+            }
         }
     }
 
