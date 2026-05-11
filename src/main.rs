@@ -9,7 +9,7 @@ fn main() {
     const FILEPATH: &str = "ibm.ch8";
 
     let program = std::fs::read(FILEPATH).expect("Couldn't read FILEPATH");
-    let mut machine = Chip8Machine::new(&program[..]).expect("Couldn't make Chip8Machine");
+    let mut machine = Chip8Machine::new(&program[..], false).expect("Couldn't make Chip8Machine");
     let mut counter = 0;
     loop {
         machine.cycle();
