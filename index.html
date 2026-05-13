@@ -5,44 +5,73 @@
     <title>Chip8 Interpreter</title>
 </head>
 <body>
-<h1>Rust Chip8 Interpreter</h1>
-<p>Below is the output of a Rust Chip8 interpreter compiled to Wasm running the IBM logo test program.</p>
+<h1>Rust CHIP-8 Emulator</h1>
+<p>Below is a Chip8 emulator I wrote in Rust, compiled to WebAssembly. Select a ROM program to load via the dropdown below and see what happens!</p>
+<label for="roms"></label>
+<select id="roms" autocomplete="off">
+    <option value="ibm.ch8" selected>IBM</option>
+    <option value="slipperyslope.ch8">Slippery Slope</option>
+    <option value="petdog.ch8">Pet Dog</option>
+    <option value="br8kout.ch8">Br8kout</option>
+    <option value="octojam1title.ch8">Octojam 1 Title</option>
+    <option value="octojam2title.ch8">Octojam 2 Title</option>
+    <option value="BC_test.ch8">BC Test</option>
+    <option value="test_opcode.ch8">Test Opcode</option>
+</select>
 <p id="display" style="white-space: pre-line; letter-spacing: -2px; line-height: 7px"></p>
 <script type="module">
     import init, { Chip8Machine } from "./pages/chip8.js";
 
-
-    function runChip8(bytes) {
-        console.log("Program is: "+bytes);
-
+    init().then(() => {
         const display = document.getElementById("display");
         const myAudio = new Audio('./pages/beep.mp3');
         myAudio.loop = true;
 
-        const machine = Chip8Machine.new(bytes, false);
-        if(!machine) {
-            console.error("Couldn't instantiate Chip8Machine");
-            return;
-        }
-        function cycleMachine() {
-            machine.cycle();
+        // Init machine
+        let machine = null;
+        let input = null;
+        fetch("./pages/roms/ibm.ch8").then((file) => {
+            file.bytes().then((bytes) => {
+                machine = Chip8Machine.new(bytes, false);
+            })
+        }).catch((err) => console.error(err))
 
-            // Set display and sound
-            display.innerHTML = machine.get_display();
-            if(machine.get_playing_sound()) {
-                if(myAudio.paused) {
-                    myAudio.play()
-                }
-            } else {
-                myAudio.pause();
+        // Setup handlers and input
+        window.setInterval(cycleMachine, 1000/700.0);
+        window.setInterval(decrementTimers, 1000/60.0);
+        addEventListener("keydown", (event) => handleKeyDown(event));
+        addEventListener("keyup", (event) => handleKeyUp(event));
+
+        // Add rom selection
+        const romSelection = document.getElementById("roms");
+        romSelection.onchange = ((event) => {
+            if(machine) {
+                console.log("Loading "+event.target.value);
+                loadProgramToChip8(event.target.value);
             }
+        })
+
+        /**
+         * Load a program to the Chip8 emulator.
+         * @param filename The filename in pages/ to load.
+         */
+        function loadProgramToChip8(filename) {
+            fetch("./pages/roms/"+filename).then((file) => {
+                file.bytes().then((bytes) => {
+                    machine.free();
+                    machine = Chip8Machine.new(bytes, false);
+                })
+            }).catch((err) => console.error(err))
         }
-        function decrementTimers() {
-            machine.decrement_timers();
-        }
-        function handleKeyUp(event) {
-            console.log("Key up: "+event.code);
-            switch (event.code) {
+
+        /**
+         * Cycle the machine CPU once and re-render the display and output audio.
+         */
+        function cycleMachine() {
+            if(!machine) { return; }
+
+            // Enter input if we have a key down
+            switch (input) {
                 case "Digit1": { machine.input(0x1); break; }
                 case "Digit2": { machine.input(0x2); break; }
                 case "Digit3": { machine.input(0x3); break; }
@@ -60,27 +89,38 @@
                 case "KeyC": { machine.input(0xB); break; }
                 case "KeyV": { machine.input(0xF); break; }
             }
+            machine.cycle();
+
+            // Set display and sound
+            display.innerHTML = machine.get_display();
+            if(machine.get_playing_sound()) {
+                if(myAudio.paused) {
+                    myAudio.play()
+                }
+            } else {
+                myAudio.pause();
+            }
         }
-        addEventListener("keyup", (event) => handleKeyUp(event));
 
-        let cycleIntervalId = window.setInterval(cycleMachine, 1000/700.0);
-        let timerDecrementId = window.setInterval(decrementTimers, 1000/60.0);
-
-        let stop = false; // TODO: Handle input/button to stop machine
-        if(stop) {
-            window.clearInterval(cycleIntervalId);
-            window.clearInterval(timerDecrementId);
-            machine.free();
+        /**
+         * Decrement the machine's timers. This needs to be called 60 times per second.
+         */
+        function decrementTimers() {
+            if(!machine) { return; }
+            machine.decrement_timers();
         }
-    }
 
-    init().then(() => {
-        fetch("./pages/test_opcode.ch8").then((file) => {
-            file.bytes().then((bytes) => {
-                runChip8(bytes);
-            })
-        }).catch((err) => console.error(err))
-    });
+        function handleKeyDown(event) {
+            console.log("Pressed key "+event.code);
+            input = event.code;
+        }
+
+        function handleKeyUp(event) {
+            if(input === event.code) {
+                input = null;
+            }
+        }
+    })
 </script>
 </body>
 </html>
