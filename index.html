@@ -11,8 +11,10 @@
 <select id="roms" autocomplete="off">
     <option value="ibm.ch8" selected>IBM</option>
     <option value="slipperyslope.ch8">Slippery Slope</option>
+    <option value="outlaw.ch8">Outlaw</option>
     <option value="petdog.ch8">Pet Dog</option>
     <option value="br8kout.ch8">Br8kout</option>
+    <option value="snek.ch8">Snek</option>
     <option value="octojam1title.ch8">Octojam 1 Title</option>
     <option value="octojam2title.ch8">Octojam 2 Title</option>
     <option value="BC_test.ch8">BC Test</option>
@@ -96,6 +98,7 @@
             if(machine.get_playing_sound()) {
                 if(myAudio.paused) {
                     myAudio.play()
+                    console.log("Playing audio!")
                 }
             } else {
                 myAudio.pause();
